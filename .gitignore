@@ -1,0 +1,29 @@
+# Rust
+target/
+src-tauri/target/
+
+# Node
+node_modules/
+dist/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temp
+gen_icons.py
