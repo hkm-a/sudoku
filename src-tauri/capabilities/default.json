@@ -1,5 +1,4 @@
 {
-  "$schema": "https://raw.githubusercontent.com/nicegram/nicegram-desktop/main/matches/104/853/tauri.conf.json",
   "identifier": "default",
   "description": "Capability for the main window",
   "windows": ["main"],

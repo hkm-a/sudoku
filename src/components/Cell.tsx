@@ -21,9 +21,13 @@ export const Cell: React.FC<CellProps> = ({
   noteValues,
   onClick,
 }) => {
+  // A cell is user-entered if it has a value and is NOT given
+  const isUser = !isGiven && value !== 0;
+
   const classNames = [
     "cell",
     isGiven ? "cell-given" : "",
+    isUser ? "cell-user" : "",
     isSelected ? "cell-selected" : "",
     isConflict ? "cell-conflict" : "",
     isHinted ? "cell-hinted" : "",
@@ -35,7 +39,7 @@ export const Cell: React.FC<CellProps> = ({
   return (
     <div className={classNames} onClick={onClick}>
       {value !== 0 ? (
-        <span className="cell-value">{value}</span>
+        <span key={value} className="cell-value pop-in">{value}</span>
       ) : noteValues.length > 0 ? (
         <div className="cell-notes">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (

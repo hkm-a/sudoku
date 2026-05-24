@@ -12,7 +12,6 @@ export const Timer: React.FC<TimerProps> = ({ seconds, gameStatus }) => {
 
   return (
     <div className={`timer ${gameStatus === "completed" ? "timer-completed" : ""}`}>
-      {gameStatus === "completed" ? "🎉 " : ""}
       {display}
     </div>
   );

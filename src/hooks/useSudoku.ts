@@ -30,11 +30,11 @@ interface UseSudokuReturn {
   dismissMessage: () => void;
 }
 
-function deepClone(board: number[][]): number[][] {
+export function deepClone(board: number[][]): number[][] {
   return board.map((row) => [...row]);
 }
 
-function detectConflicts(board: number[][]): Conflict[] {
+export function detectConflicts(board: number[][]): Conflict[] {
   const conflicts: Conflict[] = [];
   for (let row = 0; row < 9; row++) {
     for (let col = 0; col < 9; col++) {
@@ -74,7 +74,7 @@ function detectConflicts(board: number[][]): Conflict[] {
   return conflicts;
 }
 
-function isBoardComplete(board: number[][]): boolean {
+export function isBoardComplete(board: number[][]): boolean {
   for (let r = 0; r < 9; r++) {
     for (let c = 0; c < 9; c++) {
       if (board[r][c] === 0) return false;
@@ -83,8 +83,77 @@ function isBoardComplete(board: number[][]): boolean {
   return true;
 }
 
-function boardToIPC(board: number[][]): (number | null)[][] {
+export function boardToIPC(board: number[][]): (number | null)[][] {
   return board.map((row) => row.map((v) => (v === 0 ? null : v)));
+}
+
+const LOCAL_SOLUTION: number[][] = [
+  [5, 3, 4, 6, 7, 8, 9, 1, 2],
+  [6, 7, 2, 1, 9, 5, 3, 4, 8],
+  [1, 9, 8, 3, 4, 2, 5, 6, 7],
+  [8, 5, 9, 7, 6, 1, 4, 2, 3],
+  [4, 2, 6, 8, 5, 3, 7, 9, 1],
+  [7, 1, 3, 9, 2, 4, 8, 5, 6],
+  [9, 6, 1, 5, 3, 7, 2, 8, 4],
+  [2, 8, 7, 4, 1, 9, 6, 3, 5],
+  [3, 4, 5, 2, 8, 6, 1, 7, 9],
+];
+
+const LOCAL_PUZZLE: (number | null)[][] = [
+  [5, 3, null, null, 7, null, null, null, null],
+  [6, null, null, 1, 9, 5, null, null, null],
+  [null, 9, 8, null, null, null, null, 6, null],
+  [8, null, null, null, 6, null, null, null, 3],
+  [4, null, null, 8, null, 3, null, null, 1],
+  [7, null, null, null, 2, null, null, null, 6],
+  [null, 6, null, null, null, null, 2, 8, null],
+  [null, null, null, 4, 1, 9, null, null, 5],
+  [null, null, null, null, 8, null, null, 7, 9],
+];
+
+function localPuzzle() {
+  return {
+    puzzle: LOCAL_PUZZLE.map((row) => [...row]),
+    solution: deepClone(LOCAL_SOLUTION),
+  };
+}
+
+function hasLoadedSolution(solution: number[][]): boolean {
+  return solution.some((row) => row.some((value) => value !== 0));
+}
+
+function findHintForBoard(board: number[][], solution: number[][]) {
+  if (!hasLoadedSolution(solution)) return null;
+
+  for (let row = 0; row < 9; row++) {
+    for (let col = 0; col < 9; col++) {
+      if (board[row][col] !== 0 && board[row][col] !== solution[row][col]) {
+        return { row, col, num: solution[row][col] };
+      }
+    }
+  }
+
+  for (let row = 0; row < 9; row++) {
+    for (let col = 0; col < 9; col++) {
+      if (board[row][col] === 0) {
+        return { row, col, num: solution[row][col] };
+      }
+    }
+  }
+
+  return null;
+}
+
+function collectSolutionErrors(board: number[][], given: boolean[][], solution: number[][]): Conflict[] {
+  const errs: Conflict[] = [];
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      if (!given[r][c] && board[r][c] !== 0 && board[r][c] !== solution[r][c]) {
+        errs.push({ row: r, col: c });
+      }
+    }
+  }
+  return errs;
 }
 
 export function useSudoku(): UseSudokuReturn {
@@ -113,6 +182,7 @@ export function useSudoku(): UseSudokuReturn {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const noteModeRef = useRef(noteMode);
 
   const dismissMessage = useCallback(() => setMessage(null), []);
 
@@ -149,10 +219,15 @@ export function useSudoku(): UseSudokuReturn {
     setLoading(true);
     setMessage(null);
     try {
-      const result = await invoke<{ puzzle: (number | null)[][]; solution: number[][] }>(
-        "generate_puzzle",
-        { difficulty: diff }
-      );
+      let result: { puzzle: (number | null)[][]; solution: number[][] };
+      try {
+        result = await invoke<{ puzzle: (number | null)[][]; solution: number[][] }>(
+          "generate_puzzle",
+          { difficulty: diff }
+        );
+      } catch {
+        result = localPuzzle();
+      }
       const newBoard = result.puzzle.map((row) =>
         row.map((v) => (v === null ? 0 : v))
       );
@@ -206,7 +281,7 @@ export function useSudoku(): UseSudokuReturn {
       const [row, col] = selectedCell;
       if (given[row][col]) return; // Can't edit given cells
 
-      if (noteMode) {
+      if (noteModeRef.current) {
         const key = `${row}-${col}`;
         setNotes((prev) => {
           const next = new Set(prev);
@@ -228,6 +303,29 @@ export function useSudoku(): UseSudokuReturn {
       newBoard[row][col] = num;
       setBoard(newBoard);
 
+      // Clear notes for this cell
+      const cellKey = `${row}-${col}`;
+      setNotes((prev) => {
+        const next = new Set(prev);
+        for (const n of next) {
+          if (n.startsWith(`note:${cellKey}:`)) {
+            next.delete(n);
+          }
+        }
+        return next;
+      });
+
+      // Update same-number highlighting if a cell is selected
+      const numCells = new Set<string>();
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          if (newBoard[r][c] === num) {
+            numCells.add(`${r}-${c}`);
+          }
+        }
+      }
+      setSameNumberCells(numCells);
+
       // Check conflicts
       const newConflicts = detectConflicts(newBoard);
       setConflicts(newConflicts);
@@ -243,7 +341,7 @@ export function useSudoku(): UseSudokuReturn {
         setMessage(`🎉 完成！用时 ${formatTime(timer)}`);
       }
     },
-    [selectedCell, gameStatus, given, noteMode, board, solution, timer]
+    [selectedCell, gameStatus, given, board, solution, timer]
   );
 
   const eraseCell = useCallback(() => {
@@ -271,17 +369,30 @@ export function useSudoku(): UseSudokuReturn {
   }, [selectedCell, gameStatus, given, board]);
 
   const toggleNoteMode = useCallback(() => {
-    setNoteMode((prev) => !prev);
+    setNoteMode((prev) => {
+      const next = !prev;
+      noteModeRef.current = next;
+      return next;
+    });
   }, []);
 
   const getHint = useCallback(async () => {
     if (gameStatus !== "playing") return;
     setLoading(true);
     try {
-      const result = await invoke<{ row: number; col: number; num: number }>("get_hint", {
-        board: boardToIPC(board),
-        solution,
-      });
+      let result: { row: number; col: number; num: number } | null;
+      try {
+        result = await invoke<{ row: number; col: number; num: number }>("get_hint", {
+          board: boardToIPC(board),
+          solution,
+        });
+      } catch {
+        result = findHintForBoard(board, solution);
+      }
+      if (!result) {
+        setMessage("棋盘已完成");
+        return;
+      }
       const { row, col, num } = result;
       setHintCell([row, col]);
 
@@ -301,21 +412,18 @@ export function useSudoku(): UseSudokuReturn {
   }, [gameStatus, board, solution, given]);
 
   const checkBoard = useCallback(async () => {
-    if (gameStatus !== "playing") return;
+    if (gameStatus === "idle") return;
     setLoading(true);
     try {
-      const result = await invoke<number[][]>("solve_board", {
-        board: boardToIPC(board),
-      });
-      // Highlight all cells that differ from solution
-      const errs: Conflict[] = [];
-      for (let r = 0; r < 9; r++) {
-        for (let c = 0; c < 9; c++) {
-          if (!given[r][c] && board[r][c] !== 0 && board[r][c] !== result[r][c]) {
-            errs.push({ row: r, col: c });
-          }
-        }
+      let result: number[][];
+      try {
+        result = await invoke<number[][]>("solve_board", {
+          board: boardToIPC(board),
+        });
+      } catch {
+        result = solution;
       }
+      const errs = collectSolutionErrors(board, given, result);
       setConflicts(errs);
       if (errs.length === 0) {
         setMessage("✓ 全部正确！");
@@ -329,6 +437,30 @@ export function useSudoku(): UseSudokuReturn {
     }
   }, [gameStatus, board, given]);
 
+  const updateSameNumberCells = useCallback((boardState: number[][], cell: [number, number] | null) => {
+    if (!cell) {
+      setSameNumberCells(new Set());
+      return;
+    }
+
+    const [row, col] = cell;
+    const num = boardState[row][col];
+    if (num === 0) {
+      setSameNumberCells(new Set());
+      return;
+    }
+
+    const cells = new Set<string>();
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        if (boardState[r][c] === num) {
+          cells.add(`${r}-${c}`);
+        }
+      }
+    }
+    setSameNumberCells(cells);
+  }, []);
+
   const undo = useCallback(() => {
     if (history.length === 0) return;
     setHistory((prev) => {
@@ -336,9 +468,10 @@ export function useSudoku(): UseSudokuReturn {
       const prevBoard = next.pop()!;
       setBoard(prevBoard);
       setConflicts(detectConflicts(prevBoard));
+      updateSameNumberCells(prevBoard, selectedCell);
       return next;
     });
-  }, [history]);
+  }, [history, selectedCell, updateSameNumberCells]);
 
   const resetGame = useCallback(() => {
     if (gameStatus === "idle") return;
@@ -352,8 +485,13 @@ export function useSudoku(): UseSudokuReturn {
     });
     setTimer(0);
     setGameStatus("playing");
+    setSelectedCell(null);
     setHintCell(null);
+    setMistakes(0);
     setNotes(new Set());
+    setSameNumberCells(new Set());
+    setNoteMode(false);
+    noteModeRef.current = false;
     setMessage(null);
   }, [gameStatus, given]);
 

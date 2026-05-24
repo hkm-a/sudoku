@@ -1,5 +1,6 @@
 import React from "react";
 import { useSudoku } from "./hooks/useSudoku";
+import "./App.css";
 import { Board } from "./components/Board";
 import { Controls } from "./components/Controls";
 import { Timer } from "./components/Timer";
@@ -80,53 +81,101 @@ const App: React.FC = () => {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="app">
-      <header className="header">
-        <h1 className="title">数独</h1>
-        <div className="header-info">
-          <Timer seconds={timer} gameStatus={gameStatus} />
-          {gameStatus === "playing" && <span className="mistakes">错误: {mistakes}</span>}
-        </div>
-      </header>
-
+    <div className="app-card">
       {loading && (
         <div className="loading-overlay">
           <div className="spinner" />
         </div>
       )}
 
-      <Board
-        board={board}
-        given={given}
-        selectedCell={selectedCell}
-        conflicts={conflicts}
-        hintCell={hintCell}
-        sameNumberCells={sameNumberCells}
-        notes={notes}
-        onSelectCell={selectCell}
-      />
+      <div className="app">
+        {/* Left: Board Column */}
+        <div className="board-col">
+          <Board
+            board={board}
+            given={given}
+            selectedCell={selectedCell}
+            conflicts={conflicts}
+            hintCell={hintCell}
+            sameNumberCells={sameNumberCells}
+            notes={notes}
+            onSelectCell={selectCell}
+          />
+          <div className="board-status">
+            <span className="status-dot" />
+            <span className="status-text">
+              {gameStatus === "completed" ? "已完成" : "进行中"}
+            </span>
+            <span className="status-sep">·</span>
+            <span className="status-text">提示 {hintCount(given)}</span>
+          </div>
+        </div>
 
-      {noteMode && <div className="note-indicator">笔记模式</div>}
+        {/* Right: Controls Column */}
+        <div className="controls-col">
+          {/* Header */}
+          <div className="header">
+            <h1 className="title">数<em>独</em></h1>
+            <div className="header-info">
+              <div className="stat-badge stat-badge-clock">
+                <svg className="stat-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <Timer seconds={timer} gameStatus={gameStatus} />
+              </div>
+              {gameStatus === "playing" && (
+                <div className="stat-badge stat-badge-errors">
+                  <svg className="stat-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="15" y1="9" x2="9" y2="15"/>
+                    <line x1="9" y1="9" x2="15" y2="15"/>
+                  </svg>
+                  <span className="mistakes">{mistakes}</span>
+                </div>
+              )}
+            </div>
+          </div>
 
-      <Controls
-        difficulty={difficulty}
-        loading={loading}
-        noteMode={noteMode}
-        onNewGame={newGame}
-        onCheck={checkBoard}
-        onHint={getHint}
-        onReset={resetGame}
-        onUndo={undo}
-        onToggleNote={toggleNoteMode}
-      />
+          <div className="divider" />
+
+          <Controls
+            difficulty={difficulty}
+            loading={loading}
+            noteMode={noteMode}
+            onNewGame={newGame}
+            onCheck={checkBoard}
+            onHint={getHint}
+            onReset={resetGame}
+            onUndo={undo}
+            onToggleNote={toggleNoteMode}
+          />
+        </div>
+      </div>
 
       {message && (
         <div className="toast" onClick={dismissMessage}>
-          {message}
+          <div className="toast-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </div>
+          <span>{message}</span>
         </div>
       )}
     </div>
   );
 };
+
+/** Count how many cells are given (pre-filled) in the puzzle */
+function hintCount(given: boolean[][]): number {
+  let count = 0;
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      if (given[r][c]) count++;
+    }
+  }
+  return count;
+}
 
 export default App;

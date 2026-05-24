@@ -41,12 +41,25 @@ pub fn get_hint(board: Vec<Vec<Option<i32>>>, solution: Vec<Vec<i32>>) -> Result
 
     for row in 0..9 {
         for col in 0..9 {
+            if let Some(value) = board.cells[row][col] {
+                if value as i32 != solution[row][col] {
+                    return Ok(HintResponse {
+                        row,
+                        col,
+                        num: solution[row][col],
+                    });
+                }
+            }
+        }
+    }
+
+    for row in 0..9 {
+        for col in 0..9 {
             if board.cells[row][col].is_none() {
-                let hint_num = solution[row][col];
                 return Ok(HintResponse {
                     row,
                     col,
-                    num: hint_num as i32,
+                    num: solution[row][col],
                 });
             }
         }
@@ -69,5 +82,41 @@ pub fn solve_board(board: Vec<Vec<Option<i32>>>) -> Result<Vec<Vec<i32>>, String
             Ok(result)
         }
         None => Err("No solution found".to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn solved_grid() -> Vec<Vec<i32>> {
+        vec![
+            vec![5, 3, 4, 6, 7, 8, 9, 1, 2],
+            vec![6, 7, 2, 1, 9, 5, 3, 4, 8],
+            vec![1, 9, 8, 3, 4, 2, 5, 6, 7],
+            vec![8, 5, 9, 7, 6, 1, 4, 2, 3],
+            vec![4, 2, 6, 8, 5, 3, 7, 9, 1],
+            vec![7, 1, 3, 9, 2, 4, 8, 5, 6],
+            vec![9, 6, 1, 5, 3, 7, 2, 8, 4],
+            vec![2, 8, 7, 4, 1, 9, 6, 3, 5],
+            vec![3, 4, 5, 2, 8, 6, 1, 7, 9],
+        ]
+    }
+
+    #[test]
+    fn get_hint_returns_wrong_filled_cell_before_empty_cell() {
+        let solution = solved_grid();
+        let mut board: Vec<Vec<Option<i32>>> = solution
+            .iter()
+            .map(|row| row.iter().map(|&value| Some(value)).collect())
+            .collect();
+        board[0][2] = Some(9);
+        board[0][3] = None;
+
+        let hint = get_hint(board, solution).unwrap();
+
+        assert_eq!(hint.row, 0);
+        assert_eq!(hint.col, 2);
+        assert_eq!(hint.num, 4);
     }
 }
