@@ -27,3 +27,12 @@ npm-debug.log*
 
 # Temp
 gen_icons.py
+
+# Generated
+.codegraph/
+
+# Design experiments
+UI_design*.html
+
+# Windows artifacts
+nul
