@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Difficulty, Conflict } from "../types";
+import { getStage } from "../data/stages";
+import { soundManager } from "../utils/SoundManager";
 
 interface UseSudokuReturn {
   board: number[][];
@@ -18,6 +20,8 @@ interface UseSudokuReturn {
   loading: boolean;
   message: string | null;
   newGame: (diff: Difficulty) => void;
+  startStageGame: (stage: number) => void;
+  currentStage: number;
   selectCell: (row: number, col: number) => void;
   enterNumber: (num: number) => void;
   eraseCell: () => void;
@@ -179,6 +183,7 @@ export function useSudoku(): UseSudokuReturn {
   const [message, setMessage] = useState<string | null>(null);
   const [sameNumberCells, setSameNumberCells] = useState<Set<string>>(new Set());
   const [history, setHistory] = useState<number[][][]>([]);
+  const [currentStage, setCurrentStage] = useState(0);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -254,8 +259,18 @@ export function useSudoku(): UseSudokuReturn {
     }
   }, []);
 
+  const startStageGame = useCallback(async (stage: number) => {
+    const { difficulty } = getStage(stage);
+    setCurrentStage(stage);
+    // Must clear "completed" status before the async newGame call,
+    // otherwise App.tsx victory effect re-fires on currentStage change.
+    setGameStatus("idle");
+    await newGame(difficulty);
+  }, [newGame]);
+
   const selectCell = useCallback(
     (row: number, col: number) => {
+      soundManager.play("select");
       setSelectedCell([row, col]);
       const num = board[row][col];
       if (num !== 0) {
@@ -303,6 +318,9 @@ export function useSudoku(): UseSudokuReturn {
       newBoard[row][col] = num;
       setBoard(newBoard);
 
+      // Play place sound (will be overridden if mistake below)
+      soundManager.play("place");
+
       // Clear notes for this cell
       const cellKey = `${row}-${col}`;
       setNotes((prev) => {
@@ -332,16 +350,22 @@ export function useSudoku(): UseSudokuReturn {
 
       // Check if correct
       if (num !== solution[row][col]) {
+        soundManager.play("mistake");
         setMistakes((m) => m + 1);
       }
 
       // Check completion
       if (newConflicts.length === 0 && isBoardComplete(newBoard)) {
         setGameStatus("completed");
-        setMessage(`🎉 完成！用时 ${formatTime(timer)}`);
+        soundManager.play("victory");
+        if (currentStage === 0) {
+          setMessage(`🎉 完成！用时 ${formatTime(timer)}`);
+        } else {
+          setMessage(null);
+        }
       }
     },
-    [selectedCell, gameStatus, given, board, solution, timer]
+    [selectedCell, gameStatus, given, board, solution, timer, currentStage]
   );
 
   const eraseCell = useCallback(() => {
@@ -349,6 +373,7 @@ export function useSudoku(): UseSudokuReturn {
     const [row, col] = selectedCell;
     if (given[row][col]) return;
 
+    soundManager.play("erase");
     setHistory((prev) => [...prev, deepClone(board)]);
     const newBoard = deepClone(board);
     newBoard[row][col] = 0;
@@ -369,6 +394,7 @@ export function useSudoku(): UseSudokuReturn {
   }, [selectedCell, gameStatus, given, board]);
 
   const toggleNoteMode = useCallback(() => {
+    soundManager.play("note");
     setNoteMode((prev) => {
       const next = !prev;
       noteModeRef.current = next;
@@ -511,6 +537,8 @@ export function useSudoku(): UseSudokuReturn {
     loading,
     message,
     newGame,
+    startStageGame,
+    currentStage,
     selectCell,
     enterNumber,
     eraseCell,

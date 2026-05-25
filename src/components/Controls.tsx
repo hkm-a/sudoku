@@ -1,16 +1,24 @@
 import React from "react";
 import type { Difficulty } from "../types";
 
+interface StageInfo {
+  number: number;
+  unlocked: number;
+  total: number;
+}
+
 interface ControlsProps {
   difficulty: Difficulty;
   loading: boolean;
   noteMode: boolean;
+  stageInfo: StageInfo | null;
   onNewGame: (diff: Difficulty) => void;
   onCheck: () => void;
   onHint: () => void;
   onReset: () => void;
   onUndo: () => void;
   onToggleNote: () => void;
+  onOpenStageSelect: () => void;
 }
 
 const difficulties: { key: Difficulty; label: string }[] = [
@@ -20,32 +28,68 @@ const difficulties: { key: Difficulty; label: string }[] = [
   { key: "expert", label: "专家" },
 ];
 
+const diffColors: Record<string, string> = {
+  easy: "#22c55e",
+  medium: "#f97316",
+  hard: "#ef4444",
+  expert: "#a855f7",
+};
+
 export const Controls: React.FC<ControlsProps> = ({
   difficulty,
   loading,
   noteMode,
+  stageInfo,
   onNewGame,
   onCheck,
   onHint,
   onReset,
   onUndo,
   onToggleNote,
+  onOpenStageSelect,
 }) => {
   return (
     <>
-      {/* Difficulty */}
-      <div className="difficulty-selector">
-        {difficulties.map((d) => (
-          <button
-            key={d.key}
-            className={`diff-btn ${difficulty === d.key ? "diff-active" : ""}`}
-            onClick={() => onNewGame(d.key)}
-            disabled={loading}
-          >
-            {d.label}
+      {/* Stage bar (replaces difficulty selector in stage mode) */}
+      {stageInfo ? (
+        <div className="stage-bar">
+          <button className="stage-bar-btn" onClick={onOpenStageSelect}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7"/>
+              <rect x="14" y="3" width="7" height="7"/>
+              <rect x="3" y="14" width="7" height="7"/>
+              <rect x="14" y="14" width="7" height="7"/>
+            </svg>
           </button>
-        ))}
-      </div>
+          <div className="stage-bar-info">
+            <span className="stage-bar-label">第 {stageInfo.number} 关</span>
+            <span className="stage-bar-dot" style={{ backgroundColor: diffColors[difficulty] ?? "#a8a29e" }} />
+            <span className="stage-bar-diff">
+              {difficulties.find((d) => d.key === difficulty)?.label ?? difficulty}
+            </span>
+          </div>
+          <div className="stage-bar-progress">
+            <div
+              className="stage-bar-fill"
+              style={{ width: `${(stageInfo.number / stageInfo.total) * 100}%` }}
+            />
+          </div>
+        </div>
+      ) : (
+        /* Free-play difficulty selector */
+        <div className="difficulty-selector">
+          {difficulties.map((d) => (
+            <button
+              key={d.key}
+              className={`diff-btn ${difficulty === d.key ? "diff-active" : ""}`}
+              onClick={() => onNewGame(d.key)}
+              disabled={loading}
+            >
+              {d.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Notes toggle */}
       <div className="notes-row">
@@ -99,20 +143,20 @@ export const Controls: React.FC<ControlsProps> = ({
 
       {/* Action Buttons */}
       <div className="actions">
-        <button className="action-btn" onClick={() => onNewGame(difficulty)} disabled={loading}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="23 4 23 10 17 10"/>
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-          </svg>
-          新游戏
-        </button>
-        <button className="action-btn" onClick={onCheck} disabled={loading}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12"/>
-          </svg>
-          检查
-        </button>
         <div className="action-btn-row">
+          <button className="action-btn" onClick={() => onNewGame(difficulty)} disabled={loading}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 4 23 10 17 10"/>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+            新游戏
+          </button>
+          <button className="action-btn" onClick={onCheck} disabled={loading}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            检查
+          </button>
           <button className="action-btn" onClick={onHint} disabled={loading}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 18h6"/>
