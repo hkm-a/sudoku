@@ -94,15 +94,20 @@ describe("App integration — new game lifecycle", () => {
     expect(screen.getByText(`提示 ${givenCount}`)).toBeTruthy();
   });
 
-  it("starts new game with different difficulty when clicking a difficulty pill", async () => {
+  it("shows stage mode bar and can start a new stage via replay", async () => {
     const { default: App } = await import("../App");
     render(<App />);
     await waitForBoard();
 
-    await userEvent.setup().click(screen.getByText("专家"));
+    // Stage bar should show current stage info
+    expect(screen.getByText("第 1 关")).toBeTruthy();
+
+    // Click 新游戏 to restart current stage
+    await userEvent.setup().click(screen.getByText("新游戏"));
     await waitForBoard();
+    // Should have called generate_puzzle again
     expect(mockInvoke).toHaveBeenLastCalledWith("generate_puzzle", {
-      difficulty: "expert",
+      difficulty: "easy",
     });
   });
 

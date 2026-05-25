@@ -1,14 +1,29 @@
 import React from "react";
 import { useSudoku } from "./hooks/useSudoku";
+import { useSound } from "./hooks/useSound";
 import "./App.css";
 import { Board } from "./components/Board";
 import { Controls } from "./components/Controls";
 import { Timer } from "./components/Timer";
+import { HelpPanel } from "./components/HelpPanel";
+import { VictoryOverlay } from "./components/VictoryOverlay";
+import { StageSelectModal } from "./components/StageSelectModal";
+import {
+  loadUnlockedStage,
+  saveUnlockedStage,
+  resetProgress,
+  TOTAL_STAGES,
+  getStage,
+} from "./data/stages";
 
 const App: React.FC = () => {
+  const [helpVisible, setHelpVisible] = React.useState(false);
+  const [stageSelectVisible, setStageSelectVisible] = React.useState(false);
+  const [showVictory, setShowVictory] = React.useState(false);
+  const [unlockedStage, setUnlockedStage] = React.useState(loadUnlockedStage);
+
   const {
     board,
-    solution,
     given,
     selectedCell,
     difficulty,
@@ -22,6 +37,8 @@ const App: React.FC = () => {
     loading,
     message,
     newGame,
+    startStageGame,
+    currentStage,
     selectCell,
     enterNumber,
     eraseCell,
@@ -33,6 +50,61 @@ const App: React.FC = () => {
     sameNumberCells,
     dismissMessage,
   } = useSudoku();
+
+  const { play, SoundToggle } = useSound();
+
+  // ── Start game on mount: begin stage mode ──
+  const startedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!startedRef.current) {
+      startedRef.current = true;
+      startStageGame(loadUnlockedStage());
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Watch for completion → show victory overlay ──
+  React.useEffect(() => {
+    if (gameStatus === "completed" && currentStage > 0) {
+      setShowVictory(true);
+      if (currentStage >= unlockedStage && currentStage < TOTAL_STAGES) {
+        const next = currentStage + 1;
+        setUnlockedStage(next);
+        saveUnlockedStage(next);
+      }
+    }
+  }, [gameStatus, currentStage, unlockedStage]);
+
+  const handleNextStage = () => {
+    play("click");
+    setShowVictory(false);
+    const next = Math.min(currentStage + 1, TOTAL_STAGES);
+    startStageGame(next);
+  };
+
+  const handleReplayStage = () => {
+    play("click");
+    setShowVictory(false);
+    startStageGame(currentStage);
+  };
+
+  const handleBackToMenu = () => {
+    play("click");
+    setShowVictory(false);
+    setStageSelectVisible(true);
+  };
+
+  const handleStageSelect = (stage: number) => {
+    play("click");
+    startStageGame(stage);
+  };
+
+  const handleResetProgress = () => {
+    play("click");
+    resetProgress();
+    const next = 1;
+    setUnlockedStage(next);
+    startStageGame(next);
+  };
 
   // Listen for number pad events from Controls
   React.useEffect(() => {
@@ -75,10 +147,9 @@ const App: React.FC = () => {
     };
   }, [enterNumber, eraseCell, toggleNoteMode, undo, selectedCell, selectCell]);
 
-  // Start game on mount
-  React.useEffect(() => {
-    newGame("medium");
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const stageInfo = currentStage > 0
+    ? { number: currentStage, unlocked: unlockedStage, total: TOTAL_STAGES }
+    : null;
 
   return (
     <div className="app-card">
@@ -116,6 +187,7 @@ const App: React.FC = () => {
           {/* Header */}
           <div className="header">
             <h1 className="title">数<em>独</em></h1>
+            <SoundToggle />
             <div className="header-info">
               <div className="stat-badge stat-badge-clock">
                 <svg className="stat-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -143,14 +215,34 @@ const App: React.FC = () => {
             difficulty={difficulty}
             loading={loading}
             noteMode={noteMode}
-            onNewGame={newGame}
+            stageInfo={stageInfo}
+            onNewGame={(diff) => {
+              // In stage mode, "new game" = restart current stage
+              if (currentStage > 0) {
+                startStageGame(currentStage);
+              } else {
+                newGame(diff);
+              }
+            }}
             onCheck={checkBoard}
             onHint={getHint}
             onReset={resetGame}
             onUndo={undo}
             onToggleNote={toggleNoteMode}
+            onOpenStageSelect={() => setStageSelectVisible(true)}
           />
+
+          <button className="help-btn" onClick={() => { play("click"); setHelpVisible(true); }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            帮助
+          </button>
         </div>
+
+        <HelpPanel visible={helpVisible} onClose={() => setHelpVisible(false)} />
       </div>
 
       {message && (
@@ -162,6 +254,30 @@ const App: React.FC = () => {
           </div>
           <span>{message}</span>
         </div>
+      )}
+
+      {/* Victory overlay */}
+      {showVictory && (
+        <VictoryOverlay
+          stageNumber={currentStage}
+          timer={timer}
+          mistakes={mistakes}
+          isLastStage={currentStage >= TOTAL_STAGES}
+          onNextStage={handleNextStage}
+          onReplay={handleReplayStage}
+          onBackToMenu={handleBackToMenu}
+        />
+      )}
+
+      {/* Stage select modal */}
+      {stageSelectVisible && (
+        <StageSelectModal
+          unlockedStage={unlockedStage}
+          currentStage={currentStage}
+          onSelect={handleStageSelect}
+          onClose={() => setStageSelectVisible(false)}
+          onResetProgress={handleResetProgress}
+        />
       )}
     </div>
   );

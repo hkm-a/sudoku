@@ -8,12 +8,14 @@ describe("Controls", () => {
     difficulty: "medium" as const,
     loading: false,
     noteMode: false,
+    stageInfo: null,
     onNewGame: vi.fn(),
     onCheck: vi.fn(),
     onHint: vi.fn(),
     onReset: vi.fn(),
     onUndo: vi.fn(),
     onToggleNote: vi.fn(),
+    onOpenStageSelect: vi.fn(),
   };
 
   beforeEach(() => {

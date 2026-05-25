@@ -24,6 +24,7 @@ const mockState = {
 
 const mockFns = {
   newGame: vi.fn(),
+  startStageGame: vi.fn(),
   selectCell: vi.fn(),
   enterNumber: vi.fn(),
   eraseCell: vi.fn(),
@@ -53,6 +54,8 @@ vi.mock("../hooks/useSudoku", () => ({
     message: mockState.message,
     sameNumberCells: mockState.sameNumberCells,
     newGame: mockFns.newGame,
+    startStageGame: mockFns.startStageGame,
+    currentStage: 0,
     selectCell: mockFns.selectCell,
     enterNumber: mockFns.enterNumber,
     eraseCell: mockFns.eraseCell,
